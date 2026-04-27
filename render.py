@@ -44,7 +44,7 @@ def load_team() -> list[str]:
 def load_beads_all() -> list[dict]:
     """Load all tasks with full metadata in a single bd list --long --json call."""
     result = subprocess.run(
-        ["bd", "list", "--status", "open,in_progress,blocked,closed", "--long", "--json"],
+        ["bd", "list", "--status", "open,in_progress,blocked,closed", "--long", "--json", "--limit", "0"],
         capture_output=True, text=True,
     )
     if result.returncode != 0 or not result.stdout.strip():
