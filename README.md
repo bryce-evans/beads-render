@@ -4,14 +4,19 @@ Live browser dashboard for [BEADS](https://github.com/gastownhall/beads) task gr
 
 ---
 
+## Requirements
+
+- Node 22+
+- Python 3.11+
+- [bd (beads)](https://github.com/gastownhall/beads) — task tracker CLI
+
 ## Quickstart
 
 ```sh
+./setup.sh           # install deps, verify requirements, generate initial data
 ./render.py          # generate data + open dev server at localhost:5173
 ./render.py --data   # generate data file only (no server)
 ```
-
-**First run:** `npm install` runs automatically.
 
 Writes two data files:
 - `src/generated/tasks.ts` — used by the Vite dev server
