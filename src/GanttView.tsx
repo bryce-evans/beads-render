@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import type { Task } from "./types";
 import type { ColorMode, Owner } from "./types";
 import { STATUS_COLOR, parseHours } from "./utils";
-import { STATUS_GROUPS } from "./constants";
+import { STATUS_GROUPS, DONE_STATUSES } from "./constants";
 
 const PX_PER_HR = 32;
 const HOURS_PER_DAY = 8;
@@ -339,7 +339,7 @@ export default function GanttView({ tasks, colorMode, workstreams, owners, owner
                   const width = Math.max(durationHr * PX_PER_HR, MIN_BAR_W);
                   const top = ROW_PAD + lane * LANE_H + BAR_INSET;
 
-                  const isDone = task.status === "closed" || task.status === "done";
+                  const isDone = DONE_STATUSES.has(task.status);
                   const isBlocked = task.status === "blocked";
                   const isActive = task.status === "in_progress" || task.status === "in_review";
 
@@ -358,11 +358,11 @@ export default function GanttView({ tasks, colorMode, workstreams, owners, owner
                         height: BAR_H,
                         borderRadius: 5,
                         background: isDone
-                          ? `${row.color}44`
+                          ? `${row.color}18`
                           : isBlocked
                           ? "#ef444422"
                           : `${row.color}33`,
-                        border: `1.5px solid ${isBlocked ? "#ef4444" : isActive ? row.color : `${row.color}88`}`,
+                        border: `1.5px solid ${isBlocked ? "#ef4444" : isActive ? row.color : isDone ? `${row.color}33` : `${row.color}88`}`,
                         display: "flex",
                         alignItems: "center",
                         paddingLeft: 7,
@@ -370,7 +370,7 @@ export default function GanttView({ tasks, colorMode, workstreams, owners, owner
                         cursor: "pointer",
                         overflow: "hidden",
                         boxSizing: "border-box",
-                        opacity: isDone ? 0.6 : 1,
+                        opacity: isDone ? 0.4 : 1,
                       }}
                     >
                       {task.humanRequired && (

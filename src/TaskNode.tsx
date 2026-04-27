@@ -1,6 +1,7 @@
 import { Handle, Position } from "@xyflow/react";
 import type { Task } from "./types";
 import { STATUS_COLOR, STATUS_LABEL, EVENT_LABEL, relativeTime } from "./utils";
+import { DONE_STATUSES } from "./constants";
 
 interface Props {
   data: Task & { dimmed?: boolean; wsColor?: string };
@@ -8,6 +9,7 @@ interface Props {
 }
 
 export default function TaskNode({ data, selected }: Props) {
+  const isDone = DONE_STATUSES.has(data.status);
   const color = STATUS_COLOR[data.status];
   const wsColor = data.wsColor ?? "#334155";
   const latestEvent = data.events[data.events.length - 1];
@@ -26,9 +28,9 @@ export default function TaskNode({ data, selected }: Props) {
     <div
       style={{
         width: 224,
-        background: "#1e293b",
+        background: isDone ? "#131c27" : "#1e293b",
         borderRadius: 8,
-        border: `1.5px solid ${selected ? "#e2e8f0" : wsColor}`,
+        border: `1.5px solid ${selected ? "#e2e8f0" : isDone ? "#1e2d3d" : wsColor}`,
         boxShadow: selected
           ? `0 0 0 3px ${wsColor}55`
           : `0 2px 8px rgba(0,0,0,0.4)`,
@@ -36,7 +38,7 @@ export default function TaskNode({ data, selected }: Props) {
         fontFamily:
           '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
         transition: "box-shadow 0.15s, border-color 0.15s, opacity 0.15s",
-        opacity: data.dimmed ? 0.2 : 1,
+        opacity: data.dimmed ? 0.2 : isDone ? 0.45 : 1,
       }}
     >
       <Handle
@@ -61,10 +63,11 @@ export default function TaskNode({ data, selected }: Props) {
           style={{
             fontSize: 10,
             fontWeight: 700,
-            color,
+            color: isDone ? "#475569" : color,
             letterSpacing: "0.06em",
           }}
         >
+          {isDone && <span style={{ marginRight: 4 }}>✓</span>}
           {data.id}
         </span>
         <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
