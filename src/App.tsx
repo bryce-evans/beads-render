@@ -10,6 +10,7 @@ import {
   type NodeTypes,
 } from "@xyflow/react";
 import TaskNode from "./TaskNode";
+import { StandaloneBox } from "./StandaloneBox";
 import GanttView from "./GanttView";
 import Sidebar from "./Sidebar";
 import TopBar from "./TopBar";
@@ -19,7 +20,7 @@ import { COLOR_PALETTE, STATUS_GROUPS, POLL_MS } from "./constants";
 import { buildGraph, getTaskColor } from "./graphUtils";
 
 const EMPTY: TaskData = { tasks: [], generatedAt: "", workstreamScopes: {}, workstreamOwners: {}, team: [] };
-const nodeTypes: NodeTypes = { taskNode: TaskNode as never };
+const nodeTypes: NodeTypes = { taskNode: TaskNode as never, standaloneBox: StandaloneBox as never };
 
 export default function App() {
   const [data, setData] = useState<TaskData>(EMPTY);
@@ -115,12 +116,13 @@ export default function App() {
 
   useEffect(() => {
     setNodes((nds) =>
-      nds.map((n) => ({ ...n, data: { ...n.data, wsColor: getTaskColor(n.data as Task, activeMode, WS_COLOR, OWNER_COLOR) } }))
+      nds.map((n) => n.type !== "taskNode" ? n : { ...n, data: { ...n.data, wsColor: getTaskColor(n.data as Task, activeMode, WS_COLOR, OWNER_COLOR) } })
     );
   }, [activeMode, setNodes, WS_COLOR, OWNER_COLOR]);
 
   const onWsHover = useCallback((wsId: string | null) => {
     setNodes((nds) => nds.map((n) => {
+      if (n.type !== "taskNode") return n;
       const task = n.data as Task;
       return { ...n, data: { ...task, dimmed: wsId !== null && task.workstream.split("—")[0].trim() !== wsId } };
     }));
@@ -128,6 +130,7 @@ export default function App() {
 
   const onOwnerHover = useCallback((owner: string | null) => {
     setNodes((nds) => nds.map((n) => {
+      if (n.type !== "taskNode") return n;
       const task = n.data as Task;
       const matches = owner === "(unassigned)" ? !task.assignee : task.assignee === owner;
       return { ...n, data: { ...task, dimmed: owner !== null && !matches } };
@@ -136,6 +139,7 @@ export default function App() {
 
   const onStatusHover = useCallback((groupId: string | null) => {
     setNodes((nds) => nds.map((n) => {
+      if (n.type !== "taskNode") return n;
       const task = n.data as Task;
       const group = STATUS_GROUPS.find((g) => g.statuses.has(task.status));
       return { ...n, data: { ...task, dimmed: groupId !== null && group?.id !== groupId } };
@@ -212,7 +216,7 @@ export default function App() {
               <Controls position="bottom-right" style={{ bottom: 168, right: 10 }} />
               <MiniMap
                 style={{ background: "#1e293b", border: "1px solid #334155", borderRadius: 8 }}
-                nodeColor={(node) => STATUS_COLOR[(node.data as Task).status] ?? "#64748b"}
+                nodeColor={(node) => node.type !== "taskNode" ? "transparent" : STATUS_COLOR[(node.data as Task).status] ?? "#64748b"}
                 maskColor="rgba(15, 23, 42, 0.7)"
                 zoomable
                 pannable

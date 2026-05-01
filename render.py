@@ -22,7 +22,19 @@ GENERATED_DIR = RENDER_DIR / "src" / "generated"
 DATA_FILE = GENERATED_DIR / "tasks.ts"
 PUBLIC_DIR = RENDER_DIR / "public"
 JSON_FILE = PUBLIC_DIR / "tasks.json"
+STUB_FILE = RENDER_DIR / "tasks.stub.json"
 PROJECT_ROOT = RENDER_DIR.parent
+
+
+def load_stubs() -> list[dict]:
+    """Load optional tasks.stub.json from render dir and append after BEADS tasks."""
+    if not STUB_FILE.exists():
+        return []
+    try:
+        data = json.loads(STUB_FILE.read_text())
+        return data if isinstance(data, list) else []
+    except (json.JSONDecodeError, OSError):
+        return []
 
 
 def load_team() -> list[str]:
@@ -301,6 +313,10 @@ def main() -> None:
         sys.exit(1)
 
     tasks = build_tasks(beads_list)
+    stubs = load_stubs()
+    if stubs:
+        tasks = tasks + stubs
+        print(f"  {len(stubs)} stub task(s) merged from tasks.stub.json")
     ws_scopes, ws_owners = extract_workstream_meta(tasks)
     team = load_team()
     print(f"  {len(tasks)} task(s) built" + (f", {len(team)} team member(s) from team.json" if team else "") + "\n")
