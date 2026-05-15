@@ -64,16 +64,41 @@ export default function SelectionPanel({ task, workstreams, assignees, onUpdate 
         {task.title && <div style={{ fontSize: 9, color: "#64748b", marginTop: 2, lineHeight: 1.4 }}>{task.title}</div>}
       </div>
 
-      <SField label="Status">
-        <select value={canonicalStatus} onChange={(e) => onUpdate(task.beadsId, "status", e.target.value)} style={{ ...CTRL_STYLE, cursor: "pointer" }}>
-          {STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
-      </SField>
-
       <SField label="Assignee">
         <select value={task.assignee ?? ""} onChange={(e) => onUpdate(task.beadsId, "assignee", e.target.value)} style={{ ...CTRL_STYLE, cursor: "pointer" }}>
           <option value="">(none)</option>
           {assignees.map((a) => <option key={a} value={a}>{a}</option>)}
+        </select>
+      </SField>
+
+      <SField label="Priority">
+        <div style={{ display: "flex", gap: 4 }}>
+          {(["P0", "P1", "P2"] as const).map((p) => {
+            const active = task.criticality === p;
+            const pColor = p === "P0" ? "#ef4444" : p === "P1" ? "#f59e0b" : "#64748b";
+            return (
+              <button
+                key={p}
+                onClick={() => onUpdate(task.beadsId, "priority", p)}
+                style={{
+                  flex: 1, padding: "3px 0", fontSize: 10, fontWeight: 700, borderRadius: 4,
+                  cursor: "pointer", fontFamily: "inherit",
+                  background: active ? pColor : "transparent",
+                  color: active ? "#0f172a" : pColor,
+                  border: `1px solid ${pColor}`,
+                  opacity: active ? 1 : 0.55,
+                }}
+              >
+                {p}
+              </button>
+            );
+          })}
+        </div>
+      </SField>
+
+      <SField label="Status">
+        <select value={canonicalStatus} onChange={(e) => onUpdate(task.beadsId, "status", e.target.value)} style={{ ...CTRL_STYLE, cursor: "pointer" }}>
+          {STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
       </SField>
 

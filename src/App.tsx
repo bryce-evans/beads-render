@@ -89,13 +89,21 @@ export default function App() {
   }, [tasks]);
 
   const updateTask = useCallback(async (beadsId: string, field: string, value: string) => {
+    // Optimistic update so the UI reflects the change immediately
+    const taskField = ({ priority: "criticality", status: "status", assignee: "assignee", estimate: "estimate", workstream: "workstream" } as Record<string, string>)[field];
+    if (taskField) {
+      setData((prev) => ({
+        ...prev,
+        tasks: prev.tasks.map((t) => t.beadsId === beadsId ? { ...t, [taskField]: value } : t),
+      }));
+    }
     try {
       const res = await fetch("/task/update", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ beadsId, field, value }),
       });
-      if (res.ok) { lastGeneratedAt.current = ""; setTimeout(fetchData, 600); }
+      if (res.ok) { lastGeneratedAt.current = ""; setTimeout(fetchData, 800); }
     } catch { /* ignore */ }
   }, [fetchData]);
 

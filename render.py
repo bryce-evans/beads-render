@@ -6,14 +6,17 @@ Reads ALL data from BEADS (bd list + bd show --json). No other files are read.
 Task metadata (workstream, workstream_scope, workstream_owner, depends, estimate,
 human_required) must be set on BEADS issues before running render.
 
-Usage (run from your project root):
-    python path/to/render.py          # generate + open dev server
-    python path/to/render.py --data   # generate data file only, no server
+Usage:
+    python path/to/render.py                   # use parent dir as project root
+    python path/to/render.py /path/to/project  # explicit project root
+    python path/to/render.py --data            # generate data file only, no server
 """
 
+import http.server
 import json
 import subprocess
 import sys
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -23,7 +26,10 @@ DATA_FILE = GENERATED_DIR / "tasks.ts"
 PUBLIC_DIR = RENDER_DIR / "public"
 JSON_FILE = PUBLIC_DIR / "tasks.json"
 STUB_FILE = RENDER_DIR / "tasks.stub.json"
-PROJECT_ROOT = RENDER_DIR.parent
+
+# Allow an optional positional argument specifying the project root.
+_pos_args = [a for a in sys.argv[1:] if not a.startswith("--")]
+PROJECT_ROOT = Path(_pos_args[0]).resolve() if _pos_args else RENDER_DIR.parent
 
 
 def load_stubs() -> list[dict]:
@@ -57,7 +63,7 @@ def load_beads_all() -> list[dict]:
     """Load all tasks with full metadata in a single bd list --long --json call."""
     result = subprocess.run(
         ["bd", "list", "--status", "open,in_progress,blocked,closed", "--long", "--json", "--limit", "0"],
-        capture_output=True, text=True,
+        capture_output=True, text=True, cwd=PROJECT_ROOT,
     )
     if result.returncode != 0 or not result.stdout.strip():
         return []
@@ -279,6 +285,95 @@ def write_data_json(
 
 
 # ---------------------------------------------------------------------------
+# Dev API server (background thread — handles /task/update for Vite proxy)
+# ---------------------------------------------------------------------------
+
+_API_ALLOWED = {"status", "assignee", "estimate", "workstream", "priority"}
+
+
+def _make_api_handler(project_root: Path, render_dir: Path):
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def log_message(self, fmt, *args):
+            print(f"  [api] {fmt % args}")
+
+        def _json(self, code: int, obj: dict) -> None:
+            body = json.dumps(obj).encode()
+            self.send_response(code)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", len(body))
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(body)
+
+        def do_OPTIONS(self):
+            self.send_response(204)
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+            self.end_headers()
+
+        def do_POST(self):
+            if self.path.split("?")[0] != "/task/update":
+                self._json(404, {"error": "not found"})
+                return
+            length = int(self.headers.get("Content-Length", 0))
+            try:
+                req = json.loads(self.rfile.read(length))
+            except (json.JSONDecodeError, ValueError):
+                self._json(400, {"error": "invalid JSON"})
+                return
+
+            beads_id = req.get("beadsId", "").strip()
+            field = req.get("field", "").strip()
+            value = str(req.get("value", "")).strip()
+
+            if not beads_id or not field:
+                self._json(400, {"error": "beadsId and field required"})
+                return
+            if field not in _API_ALLOWED:
+                self._json(400, {"error": f"field must be one of {sorted(_API_ALLOWED)}"})
+                return
+
+            if field == "status":
+                cmd = ["bd", "update", beads_id, "--status", value]
+            elif field == "assignee":
+                cmd = ["bd", "update", beads_id, "--assignee", value]
+            elif field == "estimate":
+                cmd = ["bd", "update", beads_id, "--set-metadata", f"estimate={value}"]
+            elif field == "priority":
+                cmd = ["bd", "update", beads_id, "--priority", value.lstrip("Pp")]
+            else:  # workstream
+                cmd = ["bd", "update", beads_id, "--set-metadata", f"workstream={value}"]
+
+            r = subprocess.run(cmd, capture_output=True, text=True, cwd=project_root)
+            if r.returncode != 0:
+                print(f"  [api] bd error: {r.stderr.strip()}")
+                self._json(500, {"error": r.stderr.strip() or "bd update failed"})
+                return
+
+            # Regenerate tasks.json so the next poll gets fresh data
+            subprocess.run(
+                [sys.executable, str(render_dir / "render.py"), str(project_root), "--data"],
+                capture_output=True, text=True,
+            )
+            print(f"  [api] {beads_id}: {field}={value!r}")
+            self._json(200, {"ok": True})
+
+    return Handler
+
+
+def start_api_server(port: int = 8080) -> None:
+    handler = _make_api_handler(PROJECT_ROOT, RENDER_DIR)
+    try:
+        srv = http.server.HTTPServer(("", port), handler)
+    except OSError as e:
+        print(f"  WARNING: API server on port {port} unavailable ({e}) — task updates disabled")
+        return
+    print(f"  API server on http://localhost:{port}")
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+
+
+# ---------------------------------------------------------------------------
 # Dev server
 # ---------------------------------------------------------------------------
 
@@ -292,6 +387,7 @@ def ensure_deps() -> bool:
 
 
 def run_dev_server() -> None:
+    start_api_server()
     print(f"\n  Starting Vite dev server at http://localhost:5173\n")
     subprocess.run(["npm", "run", "dev"], cwd=RENDER_DIR)
 
@@ -304,6 +400,7 @@ def main() -> None:
     data_only = "--data" in sys.argv
 
     print("\n  Render — loading task data...\n")
+    print(f"  Project root: {PROJECT_ROOT}\n")
 
     print("  Loading tasks from BEADS...")
     beads_list = load_beads_all()

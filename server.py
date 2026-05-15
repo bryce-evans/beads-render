@@ -167,7 +167,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self._json(400, {"error": "beadsId and field required"})
             return
 
-        ALLOWED = {"status", "assignee", "estimate", "workstream"}
+        ALLOWED = {"status", "assignee", "estimate", "workstream", "priority"}
         if field not in ALLOWED:
             self._json(400, {"error": f"field must be one of {sorted(ALLOWED)}"})
             return
@@ -178,6 +178,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
             cmd = ["bd", "update", beads_id, "--assignee", value]
         elif field == "estimate":
             cmd = ["bd", "update", beads_id, "--set-metadata", f"estimate={value}"]
+        elif field == "priority":
+            # value arrives as "P0"/"P1"/"P2"; bd expects the integer
+            p_num = value.lstrip("Pp")
+            cmd = ["bd", "update", beads_id, "--priority", p_num]
         else:  # workstream
             cmd = ["bd", "update", beads_id, "--set-metadata", f"workstream={value}"]
 
