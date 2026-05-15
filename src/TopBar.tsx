@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import type { Task } from "./types";
 import type { ColorMode, ViewMode } from "./types";
 import { relativeTime } from "./utils";
@@ -20,9 +21,23 @@ interface TopBarProps {
   onViewChange: (v: ViewMode) => void;
   onColorChange: (m: ColorMode) => void;
   onColorPreview: (m: ColorMode | null) => void;
+  onRefresh: () => Promise<void>;
 }
 
-export default function TopBar({ tasks, generatedAt, viewMode, colorMode, onViewChange, onColorChange, onColorPreview }: TopBarProps) {
+export default function TopBar({ tasks, generatedAt, viewMode, colorMode, onViewChange, onColorChange, onColorPreview, onRefresh }: TopBarProps) {
+  const [, setTick] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const handleRefresh = async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    try { await onRefresh(); } finally { setRefreshing(false); }
+  };
   const done = tasks.filter((t) => DONE_STATUSES.has(t.status)).length;
   const inProgress = tasks.filter((t) => STATUS_GROUPS.find(g => g.id === "in_progress")?.statuses.has(t.status)).length;
   const blocked = tasks.filter((t) => t.status === "blocked").length;
@@ -76,7 +91,26 @@ export default function TopBar({ tasks, generatedAt, viewMode, colorMode, onView
         </div>
       </div>
 
-      {generatedAt && <span style={{ fontSize: 10, color: "#334155" }}>{relativeTime(generatedAt)}</span>}
+      {generatedAt && (
+        <button
+          onClick={handleRefresh}
+          disabled={refreshing}
+          title="Click to refresh"
+          style={{
+            background: "none",
+            border: "none",
+            padding: 0,
+            cursor: refreshing ? "default" : "pointer",
+            fontSize: 10,
+            color: refreshing ? "#475569" : "#334155",
+            transition: "color 0.15s",
+          }}
+          onMouseEnter={(e) => { if (!refreshing) (e.currentTarget as HTMLButtonElement).style.color = "#64748b"; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = refreshing ? "#475569" : "#334155"; }}
+        >
+          {refreshing ? "refreshing…" : relativeTime(generatedAt)}
+        </button>
+      )}
     </div>
   );
 }

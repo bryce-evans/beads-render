@@ -30,12 +30,14 @@ export const STATUS_LABEL: Record<TaskStatus, string> = {
 
 export function relativeTime(iso: string): string {
   const ms = Date.now() - new Date(iso).getTime();
+  const s = Math.floor(ms / 1_000);
   const m = Math.floor(ms / 60_000);
   const h = Math.floor(ms / 3_600_000);
   const d = Math.floor(ms / 86_400_000);
   if (d > 1) return `${d}d ago`;
   if (h > 0) return `${h}h ago`;
   if (m > 0) return `${m}m ago`;
+  if (s > 0) return `${s}s ago`;
   return "just now";
 }
 

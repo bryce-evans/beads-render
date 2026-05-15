@@ -88,6 +88,14 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tasks]);
 
+  const handleRefresh = useCallback(async () => {
+    try {
+      await fetch("/task/refresh", { method: "POST" });
+      lastGeneratedAt.current = "";
+      await fetchData();
+    } catch { /* ignore */ }
+  }, [fetchData]);
+
   const updateTask = useCallback(async (beadsId: string, field: string, value: string) => {
     // Optimistic update so the UI reflects the change immediately
     const taskField = ({ priority: "criticality", status: "status", assignee: "assignee", estimate: "estimate", workstream: "workstream" } as Record<string, string>)[field];
@@ -189,6 +197,7 @@ export default function App() {
           onViewChange={setViewMode}
           onColorChange={setColorMode}
           onColorPreview={setPreviewMode}
+          onRefresh={handleRefresh}
         />
 
         {viewMode === "graph" && (

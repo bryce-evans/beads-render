@@ -128,6 +128,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self._handle_task_update()
             return
 
+        if path == "/task/refresh":
+            self._handle_refresh()
+            return
+
         if path != "/webhook":
             self._send(404, "Not found")
             return
@@ -150,6 +154,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
         threading.Thread(target=_run, daemon=True).start()
         self._send(200, "ok — refresh queued")
+
+    def _handle_refresh(self) -> None:
+        msg = refresh_tasks()
+        self._send(200, msg)
 
     def _handle_task_update(self) -> None:
         length = int(self.headers.get("Content-Length", 0))
